@@ -71,3 +71,52 @@ print(df_ratings.head(3))
 ############################################################
 # Export a data sample
 ############################################################
+num_clients = 32013 # obtained dividing the full client len (480'189) by 15
+num_movies = 1300 # obtained dividing the full movie len (17'770) by 15
+w_ = [.01, .01, .08, .90] # weights to pick records by quartile, i.e. 1% of clients/movies will be picked by bottom .25 quartile
+q_ = [.25, .5, .75, 1.]
+random.seed(33)
+
+# Mark movies deciles
+movie_summary = df_ratings.groupby('Movie_Id').agg(reviews_count=('Rating','count'))
+percentiles_ = np.linspace(0,1,11) # i.e. deciles, labelling each record with the decile it falls into
+movie_summary['deciles'] = pd.qcut(movie_summary.reviews_count, percentiles_, labels=percentiles_[:-1])
+movie_summary['deciles'] = movie_summary['deciles'].astype('float')
+movie_summary.reset_index(inplace=True)
+print(movie_summary.head(3))
+
+# Mark customers deciles
+cust_summary = df_ratings.groupby('Cust_Id').agg(reviews_count=('Rating','count'))
+percentiles_ = np.linspace(0,1,11)
+cust_summary['deciles'] = pd.qcut(cust_summary.reviews_count, percentiles_, labels=percentiles_[:-1])
+cust_summary['deciles'] = cust_summary['deciles'].astype('float')
+cust_summary.reset_index(inplace=True)
+print(cust_summary.head(3))
+
+# Pick IDs
+movies_IDs = []
+cust_IDs = []
+
+qprev = 0.
+for i in range(len(w_)):
+    mo = random.sample(list(movie_summary.loc[(movie_summary['deciles']>qprev)&(movie_summary['deciles']<=q_[i]), "Movie_Id"]),
+                      round(num_movies*w_[i]))
+    cus = random.sample(list(cust_summary.loc[(cust_summary['deciles']>qprev)&(cust_summary['deciles']<=q_[i]), "Cust_Id"]),
+                       round(num_clients*w_[i]))
+    for m in mo:
+        movies_IDs.append(m)
+    for c in cus:
+        cust_IDs.append(c)
+    qprev = q_[i] #update previous quantile for next iteration
+
+print("Selected {} movies".format(len(movies_IDs)))
+print("Selected {} customers".format(len(cust_IDs)))
+
+# Filter main df
+print('Original shape: {}'.format(df_ratings.shape))
+df_ratings_XS = df_ratings[df_ratings['Movie_Id'].isin(movies_IDs)]
+df_ratings_XS = df_ratings_XS[df_ratings_XS['Cust_Id'].isin(cust_IDs)]
+print('After filtering shape: {}'.format(df_ratings_XS.shape))
+
+# Export filtered df
+df_ratings_XS.to_csv(_Path+'/df_ratings_XS.txt', header=True, index=True, sep='|', mode='w')
