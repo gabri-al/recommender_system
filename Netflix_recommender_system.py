@@ -119,4 +119,5 @@ df_ratings_XS = df_ratings_XS[df_ratings_XS['Cust_Id'].isin(cust_IDs)]
 print('After filtering shape: {}'.format(df_ratings_XS.shape))
 
 # Export filtered df
-df_ratings_XS.to_csv(_Path+'/df_ratings_XS.txt', header=True, index=True, sep='|', mode='w')
+df_ratings_XS.to_csv(_Path+'/df_ratings_XS.zip', header=True, index=False, sep='|', mode='w',
+                    compression={'method': 'zip', 'compresslevel': 9})
