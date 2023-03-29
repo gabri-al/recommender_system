@@ -163,3 +163,26 @@ U_ = svd.pu
 V_ = svd.qi
 print(U_.shape)
 print(V_.shape)
+
+
+############################################################
+# Predictions for a customer
+############################################################
+_Custid = 1316286
+
+# Real ratings
+real_ratings = df_ratings_XS.loc[df_ratings_XS['Cust_Id']==_Custid, :]
+real_ratings = pd.merge(left=real_ratings.set_index(['Movie_Id']), right=df_mov_titles['Name'],
+                        how='left', left_index=True, right_index=True)
+print(real_ratings.sort_values(by=['Rating'], ascending=[False]).head(10))
+
+# Predict ratings for movies with no ratings
+pred_data = []
+movieids = np.sort(df_ratings_XS['Movie_Id'].unique())
+to_rate = [mo for mo in movieids if mo not in list(df_ratings_XS.loc[df_ratings_XS['Cust_Id']==_Custid, 'Movie_Id'])]
+for mo in to_rate:
+    pred_data.append([mo, _Custid, svd.predict(_Custid, mo).est])
+pred_ratings = pd.DataFrame(data=pred_data, columns=['Movie_Id', 'Cust_Id', 'Predicted_Rating'])
+pred_ratings = pd.merge(left=pred_ratings.set_index(['Movie_Id']), right=df_mov_titles['Name'],
+                        how='left', left_index=True, right_index=True)
+print(pred_ratings.sort_values(by=['Predicted_Rating'], ascending=[False]).head(10))
