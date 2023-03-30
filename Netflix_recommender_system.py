@@ -168,13 +168,13 @@ print(V_.shape)
 ############################################################
 # Predictions for a customer
 ############################################################
-_Custid = 1316286
+_Custid = 1765963
 
 # Real ratings
 real_ratings = df_ratings_XS.loc[df_ratings_XS['Cust_Id']==_Custid, :]
 real_ratings = pd.merge(left=real_ratings.set_index(['Movie_Id']), right=df_mov_titles['Name'],
                         how='left', left_index=True, right_index=True)
-print(real_ratings.sort_values(by=['Rating'], ascending=[False]).head(10))
+print(real_ratings.sort_values(by=['Rating'], ascending=[False]).head(20))
 
 # Predict ratings for movies with no ratings
 pred_data = []
@@ -185,4 +185,4 @@ for mo in to_rate:
 pred_ratings = pd.DataFrame(data=pred_data, columns=['Movie_Id', 'Cust_Id', 'Predicted_Rating'])
 pred_ratings = pd.merge(left=pred_ratings.set_index(['Movie_Id']), right=df_mov_titles['Name'],
                         how='left', left_index=True, right_index=True)
-print(pred_ratings.sort_values(by=['Predicted_Rating'], ascending=[False]).head(10))
+print(pred_ratings.sort_values(by=['Predicted_Rating','Name'], ascending=[False,True]).head(20))
