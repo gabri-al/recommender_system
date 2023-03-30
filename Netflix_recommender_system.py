@@ -153,8 +153,8 @@ plt.show()
 
 # Final model
 svd = SVD(biased=False, n_factors=80)
-res = cross_validate(svd_, data, measures=['RMSE'], cv=5, n_jobs=-1)
-print(res)
+res = cross_validate(svd, data, measures=['RMSE'], cv=5, n_jobs=-1)
+display(res)
 
 # Obtain U and V matrix from SVD formulas
 data_ = data.build_full_trainset()
