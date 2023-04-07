@@ -3,6 +3,7 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 import time
+import re
 from surprise import Reader, Dataset, SVD, dump
 from surprise.model_selection import cross_validate
 from pymongo import MongoClient
@@ -157,6 +158,7 @@ plt.show()
 svd = SVD(biased=False, n_factors=80)
 res = cross_validate(svd, data, measures=['RMSE'], cv=5, n_jobs=-1)
 print(res)
+dump.dump(file_name = _Path+"/svd_model", algo = svd, verbose = 1) # Save model to file
 
 # Obtain U and V matrix from SVD formulas
 data_ = data.build_full_trainset()
@@ -165,7 +167,6 @@ U_ = svd.pu
 V_ = svd.qi
 print(U_.shape)
 print(V_.shape)
-
 
 ############################################################
 # Predictions for a customer
@@ -224,3 +225,77 @@ elapsed_ = time.strftime("%Hh%Mm%Ss", time.gmtime(time.time()-st))
 print("Dataframe creation completed in: {}".format(elapsed_))
 
 print(preds_df.head(3))
+
+############################################################
+# Create extra fields for movies and users
+############################################################
+# Add an URL to movies
+url_ = "https://www.youtube.com/results?search_query="
+Links_ = list(df_mov_titles['Name'])
+for i in range(0, len(Links_)):
+    new_ = re.sub(r"[^\w\s]", '', Links_[i])
+    new_ = re.sub(r"\s+", '+', new_)
+    Links_[i] = url_+new_+"+official+trailer"
+
+df_mov_titles['Link'] = Links_
+display(df_mov_titles.head(3))
+
+df_mov_titles.to_csv(_Path+'/movie_titles_v2.csv', header=True, index=True, sep='|', mode='w')
+df_mov_titles2 = pd.read_csv(_Path+'/movie_titles_v2.csv', sep='|', header=0, usecols=[0,1,2,3], 
+                             encoding="ISO-8859-1", dtype={'Year':'str', 'Name':'str', 'Link':'str'})
+df_mov_titles2.set_index('Movie_Id', inplace = True)
+
+# Add simulated name, surname, email to users
+file = 'Common_names.xlsx'
+first_names_ = pd.read_excel(io=_Path+'/'+file, sheet_name='First_names')
+first_names_ = list(first_names_['First Name'])
+last_names_ = pd.read_excel(io=_Path+'/'+file, sheet_name='Last_names')
+last_names_ = list(last_names_['Last Name'])
+domains_ = pd.read_excel(io=_Path+'/'+file, sheet_name='Domains')
+domains_ = list(domains_['Domain Name'])
+
+unique_cl = set()
+data_cl = []
+userids = df_ratings_XS['Cust_Id'].unique()
+
+for cc in userids:
+    isunique = 'N'
+    while isunique == 'N':
+        fn = random.sample(first_names_, 1)[0]
+        ln = random.sample(last_names_, 1)[0]
+        if str(fn+' '+ln) not in unique_cl:
+            isunique = 'Y'
+            unique_cl.add(str(fn+' '+ln))
+    dom = random.sample(domains_, 1)[0]
+    email = str(fn+'.'+ln+'@'+dom).lower()
+    data_cl.append([cc, fn, ln, email])
+
+data_cl_df = pd.DataFrame(data=data_cl, columns=['Cust_Id', 'First_Name', 'Last_Name', 'Email'])
+
+print(data_cl_df.head())
+print(len(data_cl_df))
+data_cl_df.to_csv(_Path+'/clients_data.csv', header=True, index=False, sep='|', mode='w')
+
+############################################################
+# MongoDB
+############################################################
+# Connection to local
+client = MongoClient('mongodb://localhost:27017/admin?retryWrites=true&w=majority')
+
+# Save into collections
+db = client['recommender_system']
+
+def write_data(coll_name, df_):
+    st = time.time()
+    collection = db[coll_name]
+    st_ = collection.count_documents({})
+    to_upload = df_.to_dict('records')
+    collection.insert_many(to_upload)
+    end_ = collection.count_documents({})
+    elapsed_ = time.strftime("%Hh%Mm%Ss", time.gmtime(time.time()-st))
+    print("{} documents inserted into {}\nData upload completed in {}\n".format(str(end_-st_), coll_name, elapsed_))
+
+write_data('users', data_cl_df)
+write_data('movies', df_mov_titles2.reset_index())
+write_data('ratings', df_ratings_XS.loc[:, ['Cust_Id','Rating','Movie_Id']])
+write_data('predictions', preds_df)
